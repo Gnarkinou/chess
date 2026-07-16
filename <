@@ -1,0 +1,135 @@
+package main
+
+import "core:fmt"
+import sdl "vendor:sdl3"
+
+SCREEN_WIDTH :: 1280
+SCREEN_HEIGHT :: 1024
+BOARD_SIZE :: 800
+
+Game_State :: struct {
+	window:      ^sdl.Window,
+	renderer:    ^sdl.Renderer,
+	running:     bool,
+	list_grid:   [8][8]sdl.FRect,
+	list_pieces: [dynamic]^piece,
+}
+
+piece :: struct {
+	is_white: bool,
+	type:     string,
+	is_dead:  bool,
+	coord:    [2]int,
+}
+
+main :: proc() {
+	if !sdl.Init({.VIDEO}) {
+		fmt.println("Initializing sdl video failed: ", sdl.GetError())
+		return
+	}
+	defer sdl.Quit()
+
+	state := Game_State {
+		running = true,
+	}
+
+	state.window = sdl.CreateWindow("Chess", SCREEN_WIDTH, SCREEN_HEIGHT, {})
+	if state.window == nil {
+		fmt.println("Error creating the game window: ", sdl.GetError())
+		return
+	}
+	defer sdl.DestroyWindow(state.window)
+
+	sdl.SetHint(sdl.HINT_RENDER_VSYNC, "1")
+	state.renderer = sdl.CreateRenderer(state.window, nil)
+	if state.renderer == nil {
+		fmt.println("Error creating the sdl rendrere: ", sdl.GetError())
+		return
+	}
+	defer sdl.DestroyRenderer(state.renderer)
+
+	init_grid(&state)
+
+	for state.running {
+		handle_events(&state)
+		update(&state)
+		render(&state)
+	}
+}
+
+handle_events :: proc(state: ^Game_State) {
+	event: sdl.Event
+	for sdl.PollEvent(&event) {
+		#partial switch event.type {
+		case .QUIT:
+			state.running = false
+		}
+	}
+}
+
+update :: proc(state: ^Game_State) {
+
+}
+
+render :: proc(state: ^Game_State) {
+	sdl.SetRenderDrawColorFloat(state.renderer, 0.05, 0.05, 0.08, 1.0)
+	sdl.RenderClear(state.renderer)
+	draw_grid(state)
+	sdl.RenderPresent(state.renderer)
+}
+
+draw_grid :: proc(state: ^Game_State) {
+	for i := 0; i < 8; i += 1 {
+		for j := 0; j < 8; j += 1 {
+			if (i + j) % 2 == 0 do sdl.SetRenderDrawColor(state.renderer, 240, 217, 181, 255)
+			else do sdl.SetRenderDrawColor(state.renderer, 181, 136, 99, 255)
+			sdl.RenderFillRect(state.renderer, &state.list_grid[i][j])
+		}
+	}
+}
+
+init_grid :: proc(state: ^Game_State) {
+	offset_x := (SCREEN_WIDTH - BOARD_SIZE) / 2
+	offset_y := (SCREEN_HEIGHT - BOARD_SIZE) / 2
+	tile_size := BOARD_SIZE / 8
+	for i := 0; i < 8; i += 1 {
+		for j := 0; j < 8; j += 1 {
+			state.list_grid[i][j] = sdl.FRect {
+				x = f32(offset_x + j * tile_size),
+				y = f32(offset_y + i * tile_size),
+				w = f32(tile_size),
+				h = f32(tile_size),
+			}
+		}
+	}
+}
+
+init_pieces :: proc(state: ^Game_State) {
+	state.list_pieces = make([dynamic]^piece, 0, 32)
+	back_row_types: [8]string = {
+		"tour",
+		"chevalier",
+		"fou",
+		"reine",
+		"roi",
+		"fou",
+		"chevalier",
+		"tour",
+	}
+
+	spawn_piece :: proc(state: ^Game_State, type: string, is_white: bool, row: int, col: int) {
+		p := new(piece)
+		p.type = type
+		p.is_white = is_white
+		p.is_dead = false
+		p.coord = [2]int{row, col}
+		append(&state.list_pieces, p)
+	}
+
+	for col := 0; col < 8; col += 1 {
+		spawn_piece(state, type = back_row_types[col], is_white = false, row = 0, col = col)
+		spawn_piece(state, type = back_row_types[col], is_white = true, row = 7, col = col)
+		spawn_piece(state, type = "peon", is_white = false, row = 1, col = col)
+		spawn_piece(state, type = "peon", is_white = true, row = 8, col = col)
+	}
+}
