@@ -8,17 +8,20 @@ SCREEN_HEIGHT :: 1024
 BOARD_SIZE :: 800
 
 Game_State :: struct {
-	window:         ^sdl.Window,
-	renderer:       ^sdl.Renderer,
-	running:        bool,
-	list_grid:      [8][8]sdl.FRect,
-	list_pieces:    [dynamic]^Piece,
-	white_player:   ^Player,
-	black_player:   ^Player,
-	mouse_coord:    [2]f32,
-	mouse_moved:    bool,
-	mouse_clicked:  bool,
-	mouse_released: bool,
+	window:                            ^sdl.Window,
+	renderer:                          ^sdl.Renderer,
+	running:                           bool,
+	list_grid:                         [8][8]sdl.FRect,
+	list_pieces:                       [dynamic]^Piece,
+	map_possible_movements:            map[string]int,
+	list_possible_movements_chevalier: [dynamic]int,
+	white_player:                      ^Player,
+	black_player:                      ^Player,
+	mouse_coord:                       [2]f32,
+	mouse_moved:                       bool,
+	mouse_left_clicked:                bool,
+	mouse_released:                    bool,
+	is_white_turn:                     bool,
 }
 
 Player :: struct {
@@ -44,7 +47,8 @@ main :: proc() {
 	defer sdl.Quit()
 
 	state := Game_State {
-		running = true,
+		running       = true,
+		is_white_turn = true,
 	}
 
 	state.window = sdl.CreateWindow("Chess", SCREEN_WIDTH, SCREEN_HEIGHT, {})
@@ -81,28 +85,32 @@ main :: proc() {
 
 handle_events :: proc(state: ^Game_State) {
 	state.mouse_moved = false
-	state.mouse_clicked = false
+	state.mouse_left_clicked = false
 	state.mouse_released = false
 	event: sdl.Event
 	for sdl.PollEvent(&event) {
 		#partial switch event.type {
 		case .QUIT:
 			state.running = false
+		case .KEY_DOWN:
+			if event.key.scancode == .ESCAPE do state.running = false
 		case .MOUSE_MOTION:
 			state.mouse_coord[0] = event.motion.x
 			state.mouse_coord[1] = event.motion.y
 			state.mouse_moved = true
 		case .MOUSE_BUTTON_DOWN:
-			state.mouse_clicked = true
 			if event.button.button == sdl.BUTTON_LEFT {
+				state.mouse_left_clicked = true
+				select_piece(state)
 				fmt.println("Left click at: ", event.button.x, event.button.y)
 			} else if event.button.button == sdl.BUTTON_RIGHT {
 				fmt.println("Right click at: ", event.button.x, event.button.y)
+				state.white_player.piece_selected = nil
 			}
 		case .MOUSE_BUTTON_UP:
-			state.mouse_released = true
 			if event.button.button == sdl.BUTTON_LEFT {
 				fmt.println("Left click released at: ", event.button.x, event.button.y)
+				state.mouse_released = true
 			} else if event.button.button == sdl.BUTTON_RIGHT {
 				fmt.println("Right click released at: ", event.button.x, event.button.y)
 			}
@@ -111,13 +119,7 @@ handle_events :: proc(state: ^Game_State) {
 }
 
 update :: proc(state: ^Game_State) {
-	if state.mouse_moved || state.mouse_clicked do select_piece(state)
-	/*fmt.println(
-		"player 1 is ",
-		state.white_player.name,
-		"and player 2 is: ",
-		state.black_player.name,
-	)*/
+	if state.mouse_moved || state.mouse_left_clicked do select_piece(state)
 }
 
 render :: proc(state: ^Game_State) {
@@ -239,15 +241,6 @@ cleanup_pieces :: proc(state: ^Game_State) {
 }
 
 select_piece :: proc(state: ^Game_State) {
-	/*logical_x, logical_y: f32
-	sdl.RenderCoordinatesFromWindow(
-		state.renderer,
-		state.mouse_coord[0],
-		state.mouse_coord[1],
-		&logical_x,
-		&logical_y,
-	)*/
-
 	for pcs in state.list_pieces {
 		pcs.hovered = false
 		detect_x: bool =
@@ -255,13 +248,30 @@ select_piece :: proc(state: ^Game_State) {
 		detect_y: bool =
 			(state.mouse_coord[1] > pcs.rect.y && state.mouse_coord[1] <= pcs.rect.y + pcs.rect.h)
 		if detect_y && detect_x {
-			fmt.println("The mouse is over the piece: ", pcs.type, pcs.is_white)
+			//fmt.println("The mouse is over the piece: ", pcs.type, pcs.is_white)
 			pcs.hovered = true
-			if state.mouse_clicked && state.white_player.piece_selected == nil {
-				state.white_player.piece_selected = pcs
-				fmt.println("Selected the piece: ", pcs)
-				return
+
+			if state.mouse_left_clicked {
+				if state.is_white_turn && pcs.is_white {
+					state.white_player.piece_selected = pcs
+					fmt.println("Selected the piece: ", pcs)
+					fmt.println(
+						"Case where white has a piece selected and want to move it move it !",
+					)
+					check_possible_movements(state)
+					state.mouse_left_clicked = false
+					return
+				} else if !state.is_white_turn && !pcs.is_white {
+					state.black_player.piece_selected = pcs
+					fmt.println("Selected the piece: ", pcs)
+					fmt.println(
+						"Case where black has a piece selected and want to move it move it !",
+					)
+					check_possible_movements(state)
+					state.mouse_left_clicked = false
+					return
+				}
 			}
-		} else if state.mouse_clicked do state.white_player.piece_selected = nil
+		}
 	}
 }
