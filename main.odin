@@ -8,19 +8,32 @@ SCREEN_HEIGHT :: 1024
 BOARD_SIZE :: 800
 
 Game_State :: struct {
-	window:      ^sdl.Window,
-	renderer:    ^sdl.Renderer,
-	running:     bool,
-	list_grid:   [8][8]sdl.FRect,
-	list_pieces: [dynamic]^piece,
+	window:         ^sdl.Window,
+	renderer:       ^sdl.Renderer,
+	running:        bool,
+	list_grid:      [8][8]sdl.FRect,
+	list_pieces:    [dynamic]^Piece,
+	white_player:   ^Player,
+	black_player:   ^Player,
+	mouse_coord:    [2]f32,
+	mouse_moved:    bool,
+	mouse_clicked:  bool,
+	mouse_released: bool,
 }
 
-piece :: struct {
+Player :: struct {
+	name:           string,
+	is_white:       bool,
+	piece_selected: ^Piece,
+}
+
+Piece :: struct {
 	is_white: bool,
 	type:     string,
 	is_dead:  bool,
 	coord:    [2]int,
 	rect:     sdl.FRect,
+	hovered:  bool,
 }
 
 main :: proc() {
@@ -41,7 +54,6 @@ main :: proc() {
 	}
 	defer sdl.DestroyWindow(state.window)
 
-	sdl.SetHint(sdl.HINT_RENDER_VSYNC, "1")
 	state.renderer = sdl.CreateRenderer(state.window, nil)
 	if state.renderer == nil {
 		fmt.println("Error creating the sdl rendrere: ", sdl.GetError())
@@ -49,11 +61,17 @@ main :: proc() {
 	}
 	defer sdl.DestroyRenderer(state.renderer)
 
+	vsync_ok := sdl.SetRenderVSync(state.renderer, 1)
+	if !vsync_ok {
+		fmt.println("Vsync failed")
+		sdl.SetHint(sdl.HINT_RENDER_VSYNC, "1")
+	}
+
 	init_grid(&state)
-	defer cleanup_pieces(&state)
-
 	init_pieces(&state)
+	init_players(&state)
 
+	defer cleanup_pieces(&state)
 	for state.running {
 		handle_events(&state)
 		update(&state)
@@ -62,17 +80,44 @@ main :: proc() {
 }
 
 handle_events :: proc(state: ^Game_State) {
+	state.mouse_moved = false
+	state.mouse_clicked = false
+	state.mouse_released = false
 	event: sdl.Event
 	for sdl.PollEvent(&event) {
 		#partial switch event.type {
 		case .QUIT:
 			state.running = false
+		case .MOUSE_MOTION:
+			state.mouse_coord[0] = event.motion.x
+			state.mouse_coord[1] = event.motion.y
+			state.mouse_moved = true
+		case .MOUSE_BUTTON_DOWN:
+			state.mouse_clicked = true
+			if event.button.button == sdl.BUTTON_LEFT {
+				fmt.println("Left click at: ", event.button.x, event.button.y)
+			} else if event.button.button == sdl.BUTTON_RIGHT {
+				fmt.println("Right click at: ", event.button.x, event.button.y)
+			}
+		case .MOUSE_BUTTON_UP:
+			state.mouse_released = true
+			if event.button.button == sdl.BUTTON_LEFT {
+				fmt.println("Left click released at: ", event.button.x, event.button.y)
+			} else if event.button.button == sdl.BUTTON_RIGHT {
+				fmt.println("Right click released at: ", event.button.x, event.button.y)
+			}
 		}
 	}
 }
 
 update :: proc(state: ^Game_State) {
-
+	if state.mouse_moved || state.mouse_clicked do select_piece(state)
+	/*fmt.println(
+		"player 1 is ",
+		state.white_player.name,
+		"and player 2 is: ",
+		state.black_player.name,
+	)*/
 }
 
 render :: proc(state: ^Game_State) {
@@ -123,8 +168,21 @@ init_grid :: proc(state: ^Game_State) {
 	}
 }
 
+init_players :: proc(state: ^Game_State) {
+	p1 := new(Player)
+	p1.is_white = true
+	p1.name = "Romeo"
+
+	p2 := new(Player)
+	p2.is_white = false
+	p2.name = "Juliette"
+
+	state.white_player = p1
+	state.black_player = p2
+}
+
 init_pieces :: proc(state: ^Game_State) {
-	state.list_pieces = make([dynamic]^piece, 0, 32)
+	state.list_pieces = make([dynamic]^Piece, 0, 32)
 	back_row_types: [8]string = {
 		"tour",
 		"chevalier",
@@ -137,17 +195,18 @@ init_pieces :: proc(state: ^Game_State) {
 	}
 
 	spawn_piece :: proc(state: ^Game_State, type: string, is_white: bool, row: int, col: int) {
-		p := new(piece)
+		p := new(Piece)
 		p.type = type
 		p.is_white = is_white
 		p.is_dead = false
 		p.coord = [2]int{row, col}
+		p.hovered = false
 		tile := state.list_grid[row][col]
 		margin_w := tile.w * 0.15
 		margin_h := tile.h * 0.15
 		p.rect = {
 			x = tile.x + margin_w,
-			y = tile.h + margin_h,
+			y = tile.y + margin_h,
 			w = tile.w - (margin_w * 2),
 			h = tile.h - (margin_h * 2),
 		}
@@ -177,4 +236,32 @@ cleanup_pieces :: proc(state: ^Game_State) {
 		free(p)
 	}
 	delete(state.list_pieces)
+}
+
+select_piece :: proc(state: ^Game_State) {
+	/*logical_x, logical_y: f32
+	sdl.RenderCoordinatesFromWindow(
+		state.renderer,
+		state.mouse_coord[0],
+		state.mouse_coord[1],
+		&logical_x,
+		&logical_y,
+	)*/
+
+	for pcs in state.list_pieces {
+		pcs.hovered = false
+		detect_x: bool =
+			(state.mouse_coord[0] >= pcs.rect.x && state.mouse_coord[0] <= pcs.rect.x + pcs.rect.w)
+		detect_y: bool =
+			(state.mouse_coord[1] > pcs.rect.y && state.mouse_coord[1] <= pcs.rect.y + pcs.rect.h)
+		if detect_y && detect_x {
+			fmt.println("The mouse is over the piece: ", pcs.type, pcs.is_white)
+			pcs.hovered = true
+			if state.mouse_clicked && state.white_player.piece_selected == nil {
+				state.white_player.piece_selected = pcs
+				fmt.println("Selected the piece: ", pcs)
+				return
+			}
+		} else if state.mouse_clicked do state.white_player.piece_selected = nil
+	}
 }
