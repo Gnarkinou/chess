@@ -22,6 +22,7 @@ Game_State :: struct {
 	mouse_left_clicked:                bool,
 	mouse_released:                    bool,
 	is_white_turn:                     bool,
+	tile_size:                         int,
 }
 
 Player :: struct {
@@ -157,14 +158,14 @@ draw_grid :: proc(state: ^Game_State) {
 init_grid :: proc(state: ^Game_State) {
 	offset_x := (SCREEN_WIDTH - BOARD_SIZE) / 2
 	offset_y := (SCREEN_HEIGHT - BOARD_SIZE) / 2
-	tile_size := BOARD_SIZE / 8
+	state.tile_size = BOARD_SIZE / 8
 	for i := 0; i < 8; i += 1 {
 		for j := 0; j < 8; j += 1 {
 			state.list_grid[i][j] = sdl.FRect {
-				x = f32(offset_x + j * tile_size),
-				y = f32(offset_y + i * tile_size),
-				w = f32(tile_size),
-				h = f32(tile_size),
+				x = f32(offset_x + j * state.tile_size),
+				y = f32(offset_y + i * state.tile_size),
+				w = f32(state.tile_size),
+				h = f32(state.tile_size),
 			}
 		}
 	}
@@ -183,6 +184,25 @@ init_players :: proc(state: ^Game_State) {
 	state.black_player = p2
 }
 
+spawn_piece :: proc(state: ^Game_State, type: string, is_white: bool, row: int, col: int) {
+	p := new(Piece)
+	p.type = type
+	p.is_white = is_white
+	p.is_dead = false
+	p.coord = [2]int{row, col}
+	p.hovered = false
+	tile := state.list_grid[row][col]
+	margin_w := tile.w * 0.15
+	margin_h := tile.h * 0.15
+	p.rect = {
+		x = tile.x + margin_w,
+		y = tile.y + margin_h,
+		w = tile.w - (margin_w * 2),
+		h = tile.h - (margin_h * 2),
+	}
+	append(&state.list_pieces, p)
+}
+
 init_pieces :: proc(state: ^Game_State) {
 	state.list_pieces = make([dynamic]^Piece, 0, 32)
 	back_row_types: [8]string = {
@@ -194,25 +214,6 @@ init_pieces :: proc(state: ^Game_State) {
 		"fou",
 		"chevalier",
 		"tour",
-	}
-
-	spawn_piece :: proc(state: ^Game_State, type: string, is_white: bool, row: int, col: int) {
-		p := new(Piece)
-		p.type = type
-		p.is_white = is_white
-		p.is_dead = false
-		p.coord = [2]int{row, col}
-		p.hovered = false
-		tile := state.list_grid[row][col]
-		margin_w := tile.w * 0.15
-		margin_h := tile.h * 0.15
-		p.rect = {
-			x = tile.x + margin_w,
-			y = tile.y + margin_h,
-			w = tile.w - (margin_w * 2),
-			h = tile.h - (margin_h * 2),
-		}
-		append(&state.list_pieces, p)
 	}
 
 	for col := 0; col < 8; col += 1 {
@@ -240,38 +241,71 @@ cleanup_pieces :: proc(state: ^Game_State) {
 	delete(state.list_pieces)
 }
 
+@(private)
+get_board_tile_at_mouse :: proc(state: ^Game_State) -> (row: int, col: int, valid: bool) {
+	margin_x := (SCREEN_WIDTH - BOARD_SIZE) / 2
+	margin_y := (SCREEN_HEIGHT - BOARD_SIZE) / 2
+	board_mouse_x := int(state.mouse_coord[0]) - margin_x
+	board_mouse_y := int(state.mouse_coord[1]) - margin_y
+	col = board_mouse_x / state.tile_size
+	row = board_mouse_y / state.tile_size
+
+	if row >= 0 && row < 8 && col >= 0 && col < 8 {
+		return row, col, true
+	}
+	return -1, -1, false
+}
+
+@(private)
 select_piece :: proc(state: ^Game_State) {
+	row, col, ok := get_board_tile_at_mouse(state)
+	if !ok do return
+
+	current_player := state.white_player if state.is_white_turn else state.black_player
+
 	for pcs in state.list_pieces {
 		pcs.hovered = false
-		detect_x: bool =
-			(state.mouse_coord[0] >= pcs.rect.x && state.mouse_coord[0] <= pcs.rect.x + pcs.rect.w)
-		detect_y: bool =
-			(state.mouse_coord[1] > pcs.rect.y && state.mouse_coord[1] <= pcs.rect.y + pcs.rect.h)
-		if detect_y && detect_x {
-			//fmt.println("The mouse is over the piece: ", pcs.type, pcs.is_white)
-			pcs.hovered = true
-
-			if state.mouse_left_clicked {
-				if state.is_white_turn && pcs.is_white {
-					state.white_player.piece_selected = pcs
-					fmt.println("Selected the piece: ", pcs)
-					fmt.println(
-						"Case where white has a piece selected and want to move it move it !",
-					)
-					check_possible_movements(state)
-					state.mouse_left_clicked = false
-					return
-				} else if !state.is_white_turn && !pcs.is_white {
-					state.black_player.piece_selected = pcs
-					fmt.println("Selected the piece: ", pcs)
-					fmt.println(
-						"Case where black has a piece selected and want to move it move it !",
-					)
-					check_possible_movements(state)
-					state.mouse_left_clicked = false
-					return
-				}
-			}
+		if pcs.coord[0] != row || pcs.coord[1] != col do continue
+		pcs.hovered = true
+		if !state.mouse_left_clicked do continue
+		if state.is_white_turn && pcs.is_white {
+			state.white_player.piece_selected = pcs
+			fmt.println("Selected the piece: ", pcs)
+			check_possible_movements(state)
+			state.mouse_left_clicked = false
+			return
+		} else if !state.is_white_turn && !pcs.is_white {
+			state.black_player.piece_selected = pcs
+			fmt.println("Selected the piece: ", pcs)
+			check_possible_movements(state)
+			state.mouse_left_clicked = false
+			return
 		}
 	}
+
+	if !state.mouse_left_clicked || current_player.piece_selected == nil do return
+	fmt.println(
+		"trying to move the piece: ",
+		current_player.piece_selected,
+		" to the destination: ",
+		row,
+		col,
+	)
+	move_piece(state, row, col)
+	current_player.piece_selected.is_dead = true
+	current_player.piece_selected = nil
+	state.mouse_left_clicked = false
+	cleanup_dead_pieces(state)
+}
+
+move_piece :: proc(state: ^Game_State, row: int, col: int) {
+	player := state.white_player if state.is_white_turn else state.black_player
+	if player == nil || player.piece_selected == nil do return
+	spawn_piece(
+		state,
+		type = player.piece_selected.type,
+		is_white = player.piece_selected.is_white,
+		row = row,
+		col = col,
+	)
 }
