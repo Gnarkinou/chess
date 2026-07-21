@@ -280,6 +280,9 @@ select_piece :: proc(state: ^Game_State) {
 			check_possible_movements(state)
 			state.mouse_left_clicked = false
 			return
+		} else if state.is_white_turn != pcs.is_white {
+			fmt.println("Case where one try to eat the other !!")
+			// To DO
 		}
 	}
 
@@ -291,16 +294,17 @@ select_piece :: proc(state: ^Game_State) {
 		row,
 		col,
 	)
-	move_piece(state, row, col)
+	if !move_piece(state, row, col) do return
 	current_player.piece_selected.is_dead = true
 	current_player.piece_selected = nil
 	state.mouse_left_clicked = false
+	state.is_white_turn = !state.is_white_turn
 	cleanup_dead_pieces(state)
 }
 
-move_piece :: proc(state: ^Game_State, row: int, col: int) {
+move_piece :: proc(state: ^Game_State, row: int, col: int) -> (ok: bool) {
 	player := state.white_player if state.is_white_turn else state.black_player
-	if player == nil || player.piece_selected == nil do return
+	if player == nil || player.piece_selected == nil do return false
 	spawn_piece(
 		state,
 		type = player.piece_selected.type,
@@ -308,4 +312,5 @@ move_piece :: proc(state: ^Game_State, row: int, col: int) {
 		row = row,
 		col = col,
 	)
+	return true
 }
