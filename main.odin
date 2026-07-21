@@ -8,21 +8,21 @@ SCREEN_HEIGHT :: 1024
 BOARD_SIZE :: 800
 
 Game_State :: struct {
-	window:                            ^sdl.Window,
-	renderer:                          ^sdl.Renderer,
-	running:                           bool,
-	list_grid:                         [8][8]sdl.FRect,
-	list_pieces:                       [dynamic]^Piece,
-	map_possible_movements:            map[string]int,
-	list_possible_movements_chevalier: [dynamic]int,
-	white_player:                      ^Player,
-	black_player:                      ^Player,
-	mouse_coord:                       [2]f32,
-	mouse_moved:                       bool,
-	mouse_left_clicked:                bool,
-	mouse_released:                    bool,
-	is_white_turn:                     bool,
-	tile_size:                         int,
+	window:                        ^sdl.Window,
+	renderer:                      ^sdl.Renderer,
+	running:                       bool,
+	list_grid:                     [8][8]sdl.FRect,
+	list_pieces:                   [dynamic]^Piece,
+	map_possible_movements:        map[string]int,
+	list_possible_movements_coord: [dynamic]int,
+	white_player:                  ^Player,
+	black_player:                  ^Player,
+	mouse_coord:                   [2]f32,
+	mouse_moved:                   bool,
+	mouse_left_clicked:            bool,
+	mouse_released:                bool,
+	is_white_turn:                 bool,
+	tile_size:                     int,
 }
 
 Player :: struct {
@@ -300,17 +300,4 @@ select_piece :: proc(state: ^Game_State) {
 	state.mouse_left_clicked = false
 	state.is_white_turn = !state.is_white_turn
 	cleanup_dead_pieces(state)
-}
-
-move_piece :: proc(state: ^Game_State, row: int, col: int) -> (ok: bool) {
-	player := state.white_player if state.is_white_turn else state.black_player
-	if player == nil || player.piece_selected == nil do return false
-	spawn_piece(
-		state,
-		type = player.piece_selected.type,
-		is_white = player.piece_selected.is_white,
-		row = row,
-		col = col,
-	)
-	return true
 }
