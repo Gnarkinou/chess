@@ -14,7 +14,7 @@ Game_State :: struct {
 	list_grid:                     [8][8]sdl.FRect,
 	list_pieces:                   [dynamic]^Piece,
 	map_possible_movements:        map[string]int,
-	list_possible_movements_coord: [dynamic]int,
+	list_possible_movements_coord: [dynamic][2]int,
 	white_player:                  ^Player,
 	black_player:                  ^Player,
 	mouse_coord:                   [2]f32,
