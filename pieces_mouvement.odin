@@ -319,8 +319,9 @@ check_collision_pieces :: proc(state: ^Game_State) {
 		collision := false
 		for i := 1; i <= state.map_possible_movements["UP"]; i += 1 {
 			for pcs in state.list_pieces {
-				if pcs.coord[0] == current_player.piece_selected.coord[0] &&
-				   pcs.coord[i] == current_player.piece_selected.coord[1] + i {
+				if pcs.coord[0] == current_player.piece_selected.coord[0] - i &&
+				   pcs.coord[1] == current_player.piece_selected.coord[1] {
+					fmt.println("Collision happening", pcs.coord)
 					if current_player.is_white == pcs.is_white {
 						break exit_up
 					} else {
@@ -347,8 +348,8 @@ check_collision_pieces :: proc(state: ^Game_State) {
 		collision := false
 		for i := 1; i <= state.map_possible_movements["DOWN"]; i += 1 {
 			for pcs in state.list_pieces {
-				if pcs.coord[0] == current_player.piece_selected.coord[0] &&
-				   pcs.coord[i] == current_player.piece_selected.coord[1] + i {
+				if pcs.coord[0] == current_player.piece_selected.coord[0] + i &&
+				   pcs.coord[1] == current_player.piece_selected.coord[1] {
 					if current_player.is_white == pcs.is_white {
 						break exit_down
 					} else {
@@ -377,8 +378,8 @@ check_collision_pieces :: proc(state: ^Game_State) {
 		for i := 1; i <= state.map_possible_movements["UPRIGHT"]; i += 1 {
 			collision: bool = false
 			for pcs in state.list_pieces {
-				if pcs.coord[0] == current_player.piece_selected.coord[0] + i &&
-				   pcs.coord[i] == current_player.piece_selected.coord[1] - i {
+				if pcs.coord[0] == current_player.piece_selected.coord[0] - i &&
+				   pcs.coord[1] == current_player.piece_selected.coord[1] + i {
 					if current_player.is_white == pcs.is_white {
 						break exit_upright
 					} else {
@@ -407,8 +408,8 @@ check_collision_pieces :: proc(state: ^Game_State) {
 		collision := false
 		for i := 1; i <= state.map_possible_movements["UPLEFT"]; i += 1 {
 			for pcs in state.list_pieces {
-				if pcs.coord[0] == current_player.piece_selected.coord[0] + i &&
-				   pcs.coord[i] == current_player.piece_selected.coord[1] + i {
+				if pcs.coord[0] == current_player.piece_selected.coord[0] - i &&
+				   pcs.coord[1] == current_player.piece_selected.coord[1] - i {
 					if current_player.is_white == pcs.is_white {
 						break exit_upleft
 					} else {
@@ -436,7 +437,7 @@ check_collision_pieces :: proc(state: ^Game_State) {
 		for i := 1; i <= state.map_possible_movements["DOWNRIGHT"]; i += 1 {
 			for pcs in state.list_pieces {
 				if pcs.coord[0] == current_player.piece_selected.coord[0] + i &&
-				   pcs.coord[i] == current_player.piece_selected.coord[1] + i {
+				   pcs.coord[1] == current_player.piece_selected.coord[1] + i {
 					if current_player.is_white == pcs.is_white {
 						break exit_downright
 					} else {
@@ -463,8 +464,8 @@ check_collision_pieces :: proc(state: ^Game_State) {
 		collision := false
 		for i := 1; i <= state.map_possible_movements["DOWNLEFT"]; i += 1 {
 			for pcs in state.list_pieces {
-				if pcs.coord[0] == current_player.piece_selected.coord[0] - i &&
-				   pcs.coord[i] == current_player.piece_selected.coord[1] {
+				if pcs.coord[0] == current_player.piece_selected.coord[0] + i &&
+				   pcs.coord[1] == current_player.piece_selected.coord[1] - i {
 					if current_player.is_white == pcs.is_white {
 						break exit_downleft
 					} else {
@@ -476,8 +477,8 @@ check_collision_pieces :: proc(state: ^Game_State) {
 			append(
 				&state.list_possible_movements_coord,
 				[2]int {
-					current_player.piece_selected.coord.x - i,
-					current_player.piece_selected.coord.y + i,
+					current_player.piece_selected.coord.x + i,
+					current_player.piece_selected.coord.y - i,
 				},
 			)
 			if collision do break exit_downleft
@@ -491,8 +492,8 @@ check_collision_pieces :: proc(state: ^Game_State) {
 		collision := false
 		for i := 1; i <= state.map_possible_movements["LEFT"]; i += 1 {
 			for pcs in state.list_pieces {
-				if pcs.coord[0] == current_player.piece_selected.coord[0] - i &&
-				   pcs.coord[i] == current_player.piece_selected.coord[1] {
+				if pcs.coord[0] == current_player.piece_selected.coord[0] &&
+				   pcs.coord[1] == current_player.piece_selected.coord[1] - i {
 					if current_player.is_white == pcs.is_white {
 						break exit_left
 					} else {
@@ -518,8 +519,8 @@ check_collision_pieces :: proc(state: ^Game_State) {
 		collision := false
 		for i := 1; i <= state.map_possible_movements["RIGHT"]; i += 1 {
 			for pcs in state.list_pieces {
-				if pcs.coord[0] == current_player.piece_selected.coord[0] + i &&
-				   pcs.coord[i] == current_player.piece_selected.coord[1] {
+				if pcs.coord[0] == current_player.piece_selected.coord[0] &&
+				   pcs.coord[1] == current_player.piece_selected.coord[1] + i {
 					if current_player.is_white == pcs.is_white {
 						break exit_right
 					} else {
@@ -543,6 +544,22 @@ check_collision_pieces :: proc(state: ^Game_State) {
 move_piece :: proc(state: ^Game_State, row: int, col: int) -> (ok: bool) {
 	player := state.white_player if state.is_white_turn else state.black_player
 	if player == nil || player.piece_selected == nil do return false
+	tuple: [2]int = {row, col}
+	is_possible: bool = false
+
+	for coords in &state.list_possible_movements_coord {
+		if tuple == coords do is_possible = true
+	}
+	if !is_possible do return false
+
+	for pcs in &state.list_pieces {
+		if pcs.coord == tuple && pcs.is_white != player.piece_selected.is_white {
+			pcs.is_dead = true
+			fmt.println("Killing the pcs: ", pcs)
+			check_victory_condition(state)
+			cleanup_dead_pieces(state)
+		}
+	}
 
 	spawn_piece(
 		state,

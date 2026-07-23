@@ -22,6 +22,8 @@ Game_State :: struct {
 	mouse_left_clicked:            bool,
 	mouse_released:                bool,
 	is_white_turn:                 bool,
+	white_win:                     bool,
+	black_win:                     bool,
 	tile_size:                     int,
 }
 
@@ -50,6 +52,8 @@ main :: proc() {
 	state := Game_State {
 		running       = true,
 		is_white_turn = true,
+		white_win     = false,
+		black_win     = false,
 	}
 
 	state.window = sdl.CreateWindow("Chess", SCREEN_WIDTH, SCREEN_HEIGHT, {})
@@ -81,7 +85,17 @@ main :: proc() {
 		handle_events(&state)
 		update(&state)
 		render(&state)
+		if state.black_win || state.white_win {
+			fmt.println("The game is over")
+			if state.black_win {
+				fmt.println("The black win")
+			} else {
+				fmt.println("The white win")
+			}
+			state.running = false
+		}
 	}
+	fmt.println("Exiting the game now")
 }
 
 handle_events :: proc(state: ^Game_State) {
@@ -300,4 +314,18 @@ select_piece :: proc(state: ^Game_State) {
 	state.mouse_left_clicked = false
 	state.is_white_turn = !state.is_white_turn
 	cleanup_dead_pieces(state)
+}
+
+check_victory_condition :: proc(state: ^Game_State) {
+	fmt.println("checking the victory condition")
+	for pcs in &state.list_pieces {
+		if pcs.type == "roi" && pcs.is_white && pcs.is_dead {
+			state.black_win = true
+			fmt.println("detecting win for black")
+		}
+		if pcs.type == "roi" && !pcs.is_white && pcs.is_dead {
+			state.white_win = true
+			fmt.println("detecting win for white")
+		}
+	}
 }
