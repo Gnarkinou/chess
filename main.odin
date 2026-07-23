@@ -11,7 +11,7 @@ Game_State :: struct {
 	window:                        ^sdl.Window,
 	renderer:                      ^sdl.Renderer,
 	running:                       bool,
-	list_grid:                     [8][8]sdl.FRect,
+	list_grid:                     [8][8]^Grid_Tile,
 	list_pieces:                   [dynamic]^Piece,
 	map_possible_movements:        map[string]int,
 	list_possible_movements_coord: [dynamic][2]int,
@@ -25,6 +25,14 @@ Game_State :: struct {
 	white_win:                     bool,
 	black_win:                     bool,
 	tile_size:                     int,
+}
+
+Grid_Tile :: struct {
+	tile:            sdl.FRect,
+	hovered:         bool,
+	selected:        bool,
+	killed_possible: bool,
+	move_possible:   bool,
 }
 
 Player :: struct {
@@ -75,6 +83,8 @@ main :: proc() {
 		fmt.println("Vsync failed")
 		sdl.SetHint(sdl.HINT_RENDER_VSYNC, "1")
 	}
+
+	sdl.SetRenderDrawBlendMode(state.renderer, sdl.BLENDMODE_BLEND)
 
 	init_grid(&state)
 	init_pieces(&state)
@@ -128,9 +138,19 @@ handle_events :: proc(state: ^Game_State) {
 				state.mouse_released = true
 			} else if event.button.button == sdl.BUTTON_RIGHT {
 				fmt.println("Right click released at: ", event.button.x, event.button.y)
+				unselect_all(state)
 			}
 		}
 	}
+}
+
+unselect_all :: proc(state: ^Game_State) {
+	state.list_possible_movements_coord = {}
+	state.map_possible_movements = {}
+	state.black_player.piece_selected = nil
+	state.white_player.piece_selected = nil
+	state.mouse_left_clicked = false
+	init_grid(state)
 }
 
 update :: proc(state: ^Game_State) {
@@ -164,7 +184,17 @@ draw_grid :: proc(state: ^Game_State) {
 		for j := 0; j < 8; j += 1 {
 			if (i + j) % 2 == 0 do sdl.SetRenderDrawColor(state.renderer, 240, 217, 181, 255)
 			else do sdl.SetRenderDrawColor(state.renderer, 181, 136, 99, 255)
-			sdl.RenderFillRect(state.renderer, &state.list_grid[i][j])
+			sdl.RenderFillRect(state.renderer, &state.list_grid[i][j].tile)
+			if state.list_grid[i][j].killed_possible {
+				sdl.SetRenderDrawColor(state.renderer, 250, 10, 10, 80)
+				sdl.RenderFillRect(state.renderer, &state.list_grid[i][j].tile)
+			} else if state.list_grid[i][j].selected {
+				sdl.SetRenderDrawColor(state.renderer, 10, 20, 240, 100)
+				sdl.RenderFillRect(state.renderer, &state.list_grid[i][j].tile)
+			} else if state.list_grid[i][j].move_possible {
+				sdl.SetRenderDrawColor(state.renderer, 25, 240, 20, 70)
+				sdl.RenderFillRect(state.renderer, &state.list_grid[i][j].tile)
+			}
 		}
 	}
 }
@@ -175,12 +205,18 @@ init_grid :: proc(state: ^Game_State) {
 	state.tile_size = BOARD_SIZE / 8
 	for i := 0; i < 8; i += 1 {
 		for j := 0; j < 8; j += 1 {
-			state.list_grid[i][j] = sdl.FRect {
+			g := new(Grid_Tile)
+			g.tile = sdl.FRect {
 				x = f32(offset_x + j * state.tile_size),
 				y = f32(offset_y + i * state.tile_size),
 				w = f32(state.tile_size),
 				h = f32(state.tile_size),
 			}
+			g.hovered = false
+			g.killed_possible = false
+			g.selected = false
+			g.move_possible = false
+			state.list_grid[i][j] = g
 		}
 	}
 }
@@ -205,7 +241,7 @@ spawn_piece :: proc(state: ^Game_State, type: string, is_white: bool, row: int, 
 	p.is_dead = false
 	p.coord = [2]int{row, col}
 	p.hovered = false
-	tile := state.list_grid[row][col]
+	tile := state.list_grid[row][col].tile
 	margin_w := tile.w * 0.15
 	margin_h := tile.h * 0.15
 	p.rect = {
@@ -280,6 +316,10 @@ select_piece :: proc(state: ^Game_State) {
 	for pcs in state.list_pieces {
 		pcs.hovered = false
 		if pcs.coord[0] != row || pcs.coord[1] != col do continue
+		if pcs == current_player.piece_selected && state.mouse_left_clicked {
+			unselect_all(state)
+			return
+		}
 		pcs.hovered = true
 		if !state.mouse_left_clicked do continue
 		if state.is_white_turn && pcs.is_white {
@@ -308,11 +348,14 @@ select_piece :: proc(state: ^Game_State) {
 		row,
 		col,
 	)
-	if !move_piece(state, row, col) do return
+	if !move_piece(state, row, col) {
+		return
+	}
 	current_player.piece_selected.is_dead = true
 	current_player.piece_selected = nil
 	state.mouse_left_clicked = false
 	state.is_white_turn = !state.is_white_turn
+	init_grid(state)
 	cleanup_dead_pieces(state)
 }
 

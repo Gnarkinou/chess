@@ -17,6 +17,7 @@ DOWNRIGHT = Nombre de cases que le piont peut faire en diagonale droite basse
 */
 
 check_possible_movements :: proc(state: ^Game_State) {
+	init_grid(state)
 	state.map_possible_movements = {}
 	state.list_possible_movements_coord = {}
 	if state.is_white_turn && state.white_player.piece_selected == nil do return
@@ -30,8 +31,6 @@ check_possible_movements :: proc(state: ^Game_State) {
 
 		switch state.white_player.piece_selected.type {
 		case "peon":
-			fmt.println("checking for peon movements....")
-			fmt.println(state.white_player.piece_selected.coord)
 			if state.white_player.piece_selected.coord.x <= 0 do return
 			if state.white_player.piece_selected.coord.x == 6 {
 				state.map_possible_movements = {
@@ -47,7 +46,6 @@ check_possible_movements :: proc(state: ^Game_State) {
 				}
 			}
 		case "fou":
-			fmt.println("checking for fou movements....")
 			state.map_possible_movements = {
 				"UPRIGHT"   = min(max_right, max_up),
 				"UPLEFT"    = min(max_left, max_up),
@@ -55,7 +53,6 @@ check_possible_movements :: proc(state: ^Game_State) {
 				"DOWNRIGHT" = min(max_right, max_down),
 			}
 		case "tour":
-			fmt.println("checking for tour movements....")
 			state.map_possible_movements = {
 				"RIGHT" = max_right,
 				"LEFT"  = max_left,
@@ -63,7 +60,6 @@ check_possible_movements :: proc(state: ^Game_State) {
 				"DOWN"  = max_down,
 			}
 		case "reine":
-			fmt.println("checking for reine movements....")
 			state.map_possible_movements = {
 				"UPRIGHT"   = min(max_right, max_up),
 				"UPLEFT"    = min(max_left, max_up),
@@ -75,7 +71,6 @@ check_possible_movements :: proc(state: ^Game_State) {
 				"DOWN"      = max_down,
 			}
 		case "roi":
-			fmt.println("checking for roi movements....")
 			state.map_possible_movements = {
 				"UPRIGHT"   = min(1, max_right, max_up),
 				"UPLEFT"    = min(1, max_left, max_up),
@@ -87,7 +82,6 @@ check_possible_movements :: proc(state: ^Game_State) {
 				"DOWN"      = min(1, max_down),
 			}
 		case "chevalier":
-			fmt.println("checking for chevalier movements....")
 			if max_right >= 2 && max_up >= 1 {
 				append(
 					&state.list_possible_movements_coord,
@@ -161,7 +155,6 @@ check_possible_movements :: proc(state: ^Game_State) {
 				)
 
 			}
-			fmt.println("Le chevalier peut aller sur: ", state.list_possible_movements_coord)
 		}
 	} else {
 		max_right := 7 - state.black_player.piece_selected.coord.y
@@ -171,9 +164,7 @@ check_possible_movements :: proc(state: ^Game_State) {
 
 		switch state.black_player.piece_selected.type {
 		case "peon":
-			fmt.println("checking for peon movements....")
-			fmt.println(state.black_player.piece_selected.coord)
-			if state.black_player.piece_selected.coord.x <= 0 do return
+			if state.black_player.piece_selected.coord.x < 0 do return
 			if state.black_player.piece_selected.coord.x == 1 {
 				state.map_possible_movements = {
 					"DOWN"      = 2,
@@ -188,7 +179,6 @@ check_possible_movements :: proc(state: ^Game_State) {
 				}
 			}
 		case "fou":
-			fmt.println("checking for fou movements....")
 			state.map_possible_movements = {
 				"UPRIGHT"   = min(max_right, max_up),
 				"UPLEFT"    = min(max_left, max_up),
@@ -196,7 +186,6 @@ check_possible_movements :: proc(state: ^Game_State) {
 				"DOWNRIGHT" = min(max_right, max_down),
 			}
 		case "tour":
-			fmt.println("checking for tour movements....")
 			state.map_possible_movements = {
 				"RIGHT" = max_right,
 				"LEFT"  = max_left,
@@ -204,7 +193,6 @@ check_possible_movements :: proc(state: ^Game_State) {
 				"DOWN"  = max_down,
 			}
 		case "reine":
-			fmt.println("checking for reine movements....")
 			state.map_possible_movements = {
 				"UPRIGHT"   = min(max_right, max_up),
 				"UPLEFT"    = min(max_left, max_up),
@@ -216,7 +204,6 @@ check_possible_movements :: proc(state: ^Game_State) {
 				"DOWN"      = max_down,
 			}
 		case "roi":
-			fmt.println("checking for roi movements....")
 			state.map_possible_movements = {
 				"UPRIGHT"   = min(1, max_right, max_up),
 				"UPLEFT"    = min(1, max_left, max_up),
@@ -228,13 +215,12 @@ check_possible_movements :: proc(state: ^Game_State) {
 				"DOWN"      = min(1, max_down),
 			}
 		case "chevalier":
-			fmt.println("checking for chevalier movements....")
 			if max_right >= 2 && max_up >= 1 {
 				append(
 					&state.list_possible_movements_coord,
 					[2]int {
-						state.white_player.piece_selected.coord.x - 1,
-						state.white_player.piece_selected.coord.y + 2,
+						state.black_player.piece_selected.coord.x - 1,
+						state.black_player.piece_selected.coord.y + 2,
 					},
 				)
 			}
@@ -242,8 +228,8 @@ check_possible_movements :: proc(state: ^Game_State) {
 				append(
 					&state.list_possible_movements_coord,
 					[2]int {
-						state.white_player.piece_selected.coord.x - 2,
-						state.white_player.piece_selected.coord.y + 1,
+						state.black_player.piece_selected.coord.x - 2,
+						state.black_player.piece_selected.coord.y + 1,
 					},
 				)
 			}
@@ -251,8 +237,8 @@ check_possible_movements :: proc(state: ^Game_State) {
 				append(
 					&state.list_possible_movements_coord,
 					[2]int {
-						state.white_player.piece_selected.coord.x - 1,
-						state.white_player.piece_selected.coord.y - 2,
+						state.black_player.piece_selected.coord.x - 1,
+						state.black_player.piece_selected.coord.y - 2,
 					},
 				)
 			}
@@ -260,8 +246,8 @@ check_possible_movements :: proc(state: ^Game_State) {
 				append(
 					&state.list_possible_movements_coord,
 					[2]int {
-						state.white_player.piece_selected.coord.x - 2,
-						state.white_player.piece_selected.coord.y - 1,
+						state.black_player.piece_selected.coord.x - 2,
+						state.black_player.piece_selected.coord.y - 1,
 					},
 				)
 			}
@@ -269,8 +255,8 @@ check_possible_movements :: proc(state: ^Game_State) {
 				append(
 					&state.list_possible_movements_coord,
 					[2]int {
-						state.white_player.piece_selected.coord.x + 1,
-						state.white_player.piece_selected.coord.y + 2,
+						state.black_player.piece_selected.coord.x + 1,
+						state.black_player.piece_selected.coord.y + 2,
 					},
 				)
 			}
@@ -278,8 +264,8 @@ check_possible_movements :: proc(state: ^Game_State) {
 				append(
 					&state.list_possible_movements_coord,
 					[2]int {
-						state.white_player.piece_selected.coord.x + 2,
-						state.white_player.piece_selected.coord.y + 1,
+						state.black_player.piece_selected.coord.x + 2,
+						state.black_player.piece_selected.coord.y + 1,
 					},
 				)
 			}
@@ -287,8 +273,8 @@ check_possible_movements :: proc(state: ^Game_State) {
 				append(
 					&state.list_possible_movements_coord,
 					[2]int {
-						state.white_player.piece_selected.coord.x + 1,
-						state.white_player.piece_selected.coord.y - 2,
+						state.black_player.piece_selected.coord.x + 1,
+						state.black_player.piece_selected.coord.y - 2,
 					},
 				)
 			}
@@ -296,12 +282,11 @@ check_possible_movements :: proc(state: ^Game_State) {
 				append(
 					&state.list_possible_movements_coord,
 					[2]int {
-						state.white_player.piece_selected.coord.x + 2,
-						state.white_player.piece_selected.coord.y - 1,
+						state.black_player.piece_selected.coord.x + 2,
+						state.black_player.piece_selected.coord.y - 1,
 					},
 				)
 			}
-			fmt.println("Le chevalier peut aller sur: ", state.list_possible_movements_coord)
 		}
 	}
 	fmt.println(state.map_possible_movements)
@@ -311,11 +296,34 @@ check_possible_movements :: proc(state: ^Game_State) {
 check_collision_pieces :: proc(state: ^Game_State) {
 	current_player := state.white_player if state.is_white_turn else state.black_player
 	if len(state.map_possible_movements) == 0 && current_player.piece_selected.type != "chevalier" do return
-	fmt.println("Checking the possible movements")
+	state.list_grid[current_player.piece_selected.coord.x][current_player.piece_selected.coord.y].selected =
+		true
+
+	if current_player.piece_selected.type == "chevalier" {
+		#reverse for moves, i in state.list_possible_movements_coord {
+			collision := false
+			collision_friendly := false
+			for pcs in state.list_pieces {
+				if pcs.coord != moves do continue
+				if pcs.is_white == current_player.is_white {
+					collision_friendly = true
+				}
+				collision = true
+			}
+			if collision_friendly {
+				unordered_remove(&state.list_possible_movements_coord, i)
+				continue
+			}
+			if collision {
+				state.list_grid[moves.x][moves.y].killed_possible = true
+			} else {
+				state.list_grid[moves.x][moves.y].move_possible = true
+			}
+		}
+		return
+	}
 	exit_up: {
-		fmt.println("testing going up")
 		if val, ok := state.map_possible_movements["UP"]; !ok || val <= 0 do break exit_up
-		fmt.println("caclulting up direction")
 		collision := false
 		for i := 1; i <= state.map_possible_movements["UP"]; i += 1 {
 			for pcs in state.list_pieces {
@@ -337,14 +345,19 @@ check_collision_pieces :: proc(state: ^Game_State) {
 					current_player.piece_selected.coord.y,
 				},
 			)
-			if collision do break exit_up
+			x := current_player.piece_selected.coord.x - i
+			y := current_player.piece_selected.coord.y
+			state.list_grid[x][y].move_possible = true
+
+			if collision {
+				state.list_grid[x][y].killed_possible = true
+				break exit_up
+			}
 		}
 	}
 
 	exit_down: {
-		fmt.println("testing going down")
 		if val, ok := state.map_possible_movements["DOWN"]; !ok || val <= 0 do break exit_down
-		fmt.println("caclulting down direction")
 		collision := false
 		for i := 1; i <= state.map_possible_movements["DOWN"]; i += 1 {
 			for pcs in state.list_pieces {
@@ -365,16 +378,19 @@ check_collision_pieces :: proc(state: ^Game_State) {
 					current_player.piece_selected.coord.y,
 				},
 			)
+			x := current_player.piece_selected.coord.x + i
+			y := current_player.piece_selected.coord.y
+			state.list_grid[x][y].move_possible = true
+
 			if collision {
+				state.list_grid[x][y].killed_possible = true
 				break exit_down
 			}
 		}
 	}
 
 	exit_upright: {
-		fmt.println("testing going up right")
 		if val, ok := state.map_possible_movements["UPRIGHT"]; !ok || val <= 0 do break exit_upright
-		fmt.println("caclulting up right direction")
 		for i := 1; i <= state.map_possible_movements["UPRIGHT"]; i += 1 {
 			collision: bool = false
 			for pcs in state.list_pieces {
@@ -395,16 +411,19 @@ check_collision_pieces :: proc(state: ^Game_State) {
 					current_player.piece_selected.coord.y + i,
 				},
 			)
+			x := current_player.piece_selected.coord.x - i
+			y := current_player.piece_selected.coord.y + i
+			state.list_grid[x][y].move_possible = true
+
 			if collision {
+				state.list_grid[x][y].killed_possible = true
 				break exit_upright
 			}
 		}
 	}
 
 	exit_upleft: {
-		fmt.println("testing going up left")
 		if val, ok := state.map_possible_movements["UPLEFT"]; !ok || val <= 0 do break exit_upleft
-		fmt.println("caclulting up left direction")
 		collision := false
 		for i := 1; i <= state.map_possible_movements["UPLEFT"]; i += 1 {
 			for pcs in state.list_pieces {
@@ -425,14 +444,19 @@ check_collision_pieces :: proc(state: ^Game_State) {
 					current_player.piece_selected.coord.y - i,
 				},
 			)
-			if collision do break exit_upleft
+			x := current_player.piece_selected.coord.x - i
+			y := current_player.piece_selected.coord.y - i
+			state.list_grid[x][y].move_possible = true
+
+			if collision {
+				state.list_grid[x][y].killed_possible = true
+				break exit_upleft
+			}
 		}
 	}
 
 	exit_downright: {
-		fmt.println("testing going down right")
 		if val, ok := state.map_possible_movements["DOWNRIGHT"]; !ok || val <= 0 do break exit_downright
-		fmt.println("caclulting down right direction")
 		collision := false
 		for i := 1; i <= state.map_possible_movements["DOWNRIGHT"]; i += 1 {
 			for pcs in state.list_pieces {
@@ -453,14 +477,19 @@ check_collision_pieces :: proc(state: ^Game_State) {
 					current_player.piece_selected.coord.y + i,
 				},
 			)
-			if collision do break exit_downright
+			x := current_player.piece_selected.coord.x + i
+			y := current_player.piece_selected.coord.y + i
+			state.list_grid[x][y].move_possible = true
+
+			if collision {
+				state.list_grid[x][y].killed_possible = true
+				break exit_downright
+			}
 		}
 	}
 
 	exit_downleft: {
-		fmt.println("testing going down left")
 		if val, ok := state.map_possible_movements["DOWNLEFT"]; !ok || val <= 0 do break exit_downleft
-		fmt.println("caclulting down left direction")
 		collision := false
 		for i := 1; i <= state.map_possible_movements["DOWNLEFT"]; i += 1 {
 			for pcs in state.list_pieces {
@@ -481,14 +510,19 @@ check_collision_pieces :: proc(state: ^Game_State) {
 					current_player.piece_selected.coord.y - i,
 				},
 			)
-			if collision do break exit_downleft
+			x := current_player.piece_selected.coord.x + i
+			y := current_player.piece_selected.coord.y - i
+			state.list_grid[x][y].move_possible = true
+
+			if collision {
+				state.list_grid[x][y].killed_possible = true
+				break exit_downleft
+			}
 		}
 	}
 
 	exit_left: {
-		fmt.println("testing going left")
 		if val, ok := state.map_possible_movements["LEFT"]; !ok || val <= 0 do break exit_left
-		fmt.println("caclulting left direction")
 		collision := false
 		for i := 1; i <= state.map_possible_movements["LEFT"]; i += 1 {
 			for pcs in state.list_pieces {
@@ -508,14 +542,19 @@ check_collision_pieces :: proc(state: ^Game_State) {
 					current_player.piece_selected.coord.y - i,
 				},
 			)
-			if collision do break exit_left
+			x := current_player.piece_selected.coord.x
+			y := current_player.piece_selected.coord.y - i
+			state.list_grid[x][y].move_possible = true
+
+			if collision {
+				state.list_grid[x][y].killed_possible = true
+				break exit_left
+			}
 		}
 	}
 
 	exit_right: {
-		fmt.println("testing going right")
 		if val, ok := state.map_possible_movements["RIGHT"]; !ok || val <= 0 do break exit_right
-		fmt.println("caclulting right direction")
 		collision := false
 		for i := 1; i <= state.map_possible_movements["RIGHT"]; i += 1 {
 			for pcs in state.list_pieces {
@@ -535,7 +574,14 @@ check_collision_pieces :: proc(state: ^Game_State) {
 					current_player.piece_selected.coord.y + i,
 				},
 			)
-			if collision do break exit_right
+			x := current_player.piece_selected.coord.x
+			y := current_player.piece_selected.coord.y + i
+			state.list_grid[x][y].move_possible = true
+
+			if collision {
+				state.list_grid[x][y].killed_possible = true
+				break exit_right
+			}
 		}
 	}
 	fmt.println("The list of possible movements is: ", state.list_possible_movements_coord)
