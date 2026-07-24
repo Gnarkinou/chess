@@ -3,6 +3,7 @@ package main
 import "core:fmt"
 import "core:strings"
 import sdl "vendor:sdl3"
+import ttf "vendor:sdl3/ttf"
 
 SCREEN_WIDTH :: 1280
 SCREEN_HEIGHT :: 1024
@@ -36,6 +37,7 @@ Game_State :: struct {
 	white_win:                     bool,
 	black_win:                     bool,
 	tile_size:                     int,
+	font:                          ^ttf.Font,
 }
 
 Grid_Tile :: struct {
@@ -109,6 +111,7 @@ main :: proc() {
 
 	defer cleanup_textures(&state)
 	defer cleanup_pieces(&state)
+	defer cleanup_gui(&state)
 	for state.running {
 		handle_events(&state)
 		update(&state)
