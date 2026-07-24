@@ -1,11 +1,21 @@
 package main
 
 import "core:fmt"
+import "core:strings"
 import sdl "vendor:sdl3"
 
 SCREEN_WIDTH :: 1280
 SCREEN_HEIGHT :: 1024
 BOARD_SIZE :: 800
+
+Piece_Type :: enum {
+	pion,
+	tour,
+	chevalier,
+	fou,
+	reine,
+	roi,
+}
 
 Game_State :: struct {
 	window:                        ^sdl.Window,
@@ -15,6 +25,7 @@ Game_State :: struct {
 	list_pieces:                   [dynamic]^Piece,
 	map_possible_movements:        map[string]int,
 	list_possible_movements_coord: [dynamic][2]int,
+	texture_cache:                 Texture_Cache,
 	white_player:                  ^Player,
 	black_player:                  ^Player,
 	mouse_coord:                   [2]f32,
@@ -43,11 +54,16 @@ Player :: struct {
 
 Piece :: struct {
 	is_white: bool,
-	type:     string,
+	type:     Piece_Type,
 	is_dead:  bool,
 	coord:    [2]int,
 	rect:     sdl.FRect,
 	hovered:  bool,
+}
+
+Texture_Cache :: struct {
+	white: [Piece_Type]^sdl.Texture,
+	black: [Piece_Type]^sdl.Texture,
 }
 
 main :: proc() {
@@ -89,7 +105,9 @@ main :: proc() {
 	init_grid(&state)
 	init_pieces(&state)
 	init_players(&state)
+	init_textures(&state)
 
+	defer cleanup_textures(&state)
 	defer cleanup_pieces(&state)
 	for state.running {
 		handle_events(&state)
@@ -167,15 +185,19 @@ render :: proc(state: ^Game_State) {
 
 draw_pieces :: proc(state: ^Game_State) {
 	for pcs in state.list_pieces {
-		if pcs.coord[0] < 0 || pcs.coord[1] < 0 || pcs.coord[0] > 7 || pcs.coord[1] > 7 do continue // safety net
-		if pcs.is_white do sdl.SetRenderDrawColor(state.renderer, 245, 245, 240, 255)
-		else do sdl.SetRenderDrawColor(state.renderer, 45, 45, 48, 255)
-		sdl.RenderFillRect(state.renderer, &pcs.rect)
-		/*switch pcs.type {
-		case "peon":
-			sdl.RenderFillRect(state.renderer, &pcs.rect)
+		if pcs.is_dead do continue
+		if pcs.coord[0] < 0 || pcs.coord[1] < 0 || pcs.coord[0] > 7 || pcs.coord[1] > 7 do continue
 
-		}*/
+		tex: ^sdl.Texture
+		if pcs.is_white {
+			tex = state.texture_cache.white[pcs.type]
+		} else {
+			tex = state.texture_cache.black[pcs.type]
+		}
+
+		if tex != nil {
+			sdl.RenderTexture(state.renderer, tex, nil, &pcs.rect)
+		}
 	}
 }
 
@@ -234,7 +256,7 @@ init_players :: proc(state: ^Game_State) {
 	state.black_player = p2
 }
 
-spawn_piece :: proc(state: ^Game_State, type: string, is_white: bool, row: int, col: int) {
+spawn_piece :: proc(state: ^Game_State, type: Piece_Type, is_white: bool, row: int, col: int) {
 	p := new(Piece)
 	p.type = type
 	p.is_white = is_white
@@ -255,22 +277,13 @@ spawn_piece :: proc(state: ^Game_State, type: string, is_white: bool, row: int, 
 
 init_pieces :: proc(state: ^Game_State) {
 	state.list_pieces = make([dynamic]^Piece, 0, 32)
-	back_row_types: [8]string = {
-		"tour",
-		"chevalier",
-		"fou",
-		"reine",
-		"roi",
-		"fou",
-		"chevalier",
-		"tour",
-	}
+	back_row: [8]Piece_Type = {.tour, .chevalier, .fou, .reine, .roi, .fou, .chevalier, .tour}
 
 	for col := 0; col < 8; col += 1 {
-		spawn_piece(state, type = back_row_types[col], is_white = false, row = 0, col = col)
-		spawn_piece(state, type = back_row_types[col], is_white = true, row = 7, col = col)
-		spawn_piece(state, type = "peon", is_white = false, row = 1, col = col)
-		spawn_piece(state, type = "peon", is_white = true, row = 6, col = col)
+		spawn_piece(state, type = back_row[col], is_white = false, row = 0, col = col)
+		spawn_piece(state, type = back_row[col], is_white = true, row = 7, col = col)
+		spawn_piece(state, type = .pion, is_white = false, row = 1, col = col)
+		spawn_piece(state, type = .pion, is_white = true, row = 6, col = col)
 	}
 }
 
@@ -362,13 +375,76 @@ select_piece :: proc(state: ^Game_State) {
 check_victory_condition :: proc(state: ^Game_State) {
 	fmt.println("checking the victory condition")
 	for pcs in &state.list_pieces {
-		if pcs.type == "roi" && pcs.is_white && pcs.is_dead {
+		if pcs.type == .roi && pcs.is_white && pcs.is_dead {
 			state.black_win = true
 			fmt.println("detecting win for black")
 		}
-		if pcs.type == "roi" && !pcs.is_white && pcs.is_dead {
+		if pcs.type == .roi && !pcs.is_white && pcs.is_dead {
 			state.white_win = true
 			fmt.println("detecting win for white")
 		}
+	}
+}
+
+load_piece_texture :: proc(renderer: ^sdl.Renderer, path: string) -> ^sdl.Texture {
+	if renderer == nil {
+		fmt.println("Error, renderer is nil, cannot load texture ", path)
+		return nil
+	}
+	c_path := strings.clone_to_cstring(path, context.temp_allocator)
+	surface := sdl.LoadSurface(c_path)
+	if surface == nil {
+		fmt.println("Loading surface failed", sdl.GetError())
+		return nil
+	}
+	defer sdl.DestroySurface(surface)
+
+	details := sdl.GetPixelFormatDetails(surface.format)
+	red_key := sdl.MapRGB(details, nil, 255, 0, 0)
+	if !sdl.SetSurfaceColorKey(surface, true, red_key) {
+		fmt.println("Failed to set surface color key: ", sdl.GetError())
+	}
+
+	texture := sdl.CreateTextureFromSurface(renderer, surface)
+	if texture == nil {
+		fmt.println("Failed to create the texture", sdl.GetError())
+		return nil
+	}
+	sdl.SetTextureBlendMode(texture, {.BLEND})
+	return texture
+}
+
+init_textures :: proc(state: ^Game_State) {
+	if state.renderer == nil {
+		fmt.println("Ah that is not good, rendrere is nil")
+		return
+	}
+	white_filenames := [Piece_Type]string {
+		.pion      = "sources/Whites/Peon_Blanc.png",
+		.tour      = "sources/Whites/Tour_Blanche.png",
+		.chevalier = "sources/Whites/Chevalier_Blanc.png",
+		.fou       = "sources/Whites/Fou_Blanc.png",
+		.reine     = "sources/Whites/Reine_Blanche.png",
+		.roi       = "sources/Whites/Roi_Blanc.png",
+	}
+	black_filenames := [Piece_Type]string {
+		.pion      = "sources/Blacks/Peon_Noir.png",
+		.tour      = "sources/Blacks/Tour_Noir.png",
+		.chevalier = "sources/Blacks/Chevalier_Noir.png",
+		.fou       = "sources/Blacks/Fou_Noir.png",
+		.reine     = "sources/Blacks/Reine_Noire.png",
+		.roi       = "sources/Blacks/Roi_Noir.png",
+	}
+
+	for type in Piece_Type {
+		state.texture_cache.white[type] = load_piece_texture(state.renderer, white_filenames[type])
+		state.texture_cache.black[type] = load_piece_texture(state.renderer, black_filenames[type])
+	}
+}
+
+cleanup_textures :: proc(state: ^Game_State) {
+	for type in Piece_Type {
+		if state.texture_cache.white[type] != nil do sdl.DestroyTexture(state.texture_cache.white[type])
+		if state.texture_cache.black[type] != nil do sdl.DestroyTexture(state.texture_cache.black[type])
 	}
 }

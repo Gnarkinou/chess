@@ -30,7 +30,7 @@ check_possible_movements :: proc(state: ^Game_State) {
 		max_down := 7 - state.white_player.piece_selected.coord.x
 
 		switch state.white_player.piece_selected.type {
-		case "peon":
+		case .pion:
 			if state.white_player.piece_selected.coord.x <= 0 do return
 			if state.white_player.piece_selected.coord.x == 6 {
 				state.map_possible_movements = {
@@ -45,21 +45,21 @@ check_possible_movements :: proc(state: ^Game_State) {
 					"UPLEFT"  = 1,
 				}
 			}
-		case "fou":
+		case .fou:
 			state.map_possible_movements = {
 				"UPRIGHT"   = min(max_right, max_up),
 				"UPLEFT"    = min(max_left, max_up),
 				"DOWNLEFT"  = min(max_left, max_down),
 				"DOWNRIGHT" = min(max_right, max_down),
 			}
-		case "tour":
+		case .tour:
 			state.map_possible_movements = {
 				"RIGHT" = max_right,
 				"LEFT"  = max_left,
 				"UP"    = max_up,
 				"DOWN"  = max_down,
 			}
-		case "reine":
+		case .reine:
 			state.map_possible_movements = {
 				"UPRIGHT"   = min(max_right, max_up),
 				"UPLEFT"    = min(max_left, max_up),
@@ -70,7 +70,7 @@ check_possible_movements :: proc(state: ^Game_State) {
 				"UP"        = max_up,
 				"DOWN"      = max_down,
 			}
-		case "roi":
+		case .roi:
 			state.map_possible_movements = {
 				"UPRIGHT"   = min(1, max_right, max_up),
 				"UPLEFT"    = min(1, max_left, max_up),
@@ -81,7 +81,7 @@ check_possible_movements :: proc(state: ^Game_State) {
 				"UP"        = min(1, max_up),
 				"DOWN"      = min(1, max_down),
 			}
-		case "chevalier":
+		case .chevalier:
 			if max_right >= 2 && max_up >= 1 {
 				append(
 					&state.list_possible_movements_coord,
@@ -163,7 +163,7 @@ check_possible_movements :: proc(state: ^Game_State) {
 		max_down := 7 - state.black_player.piece_selected.coord.x
 
 		switch state.black_player.piece_selected.type {
-		case "peon":
+		case .pion:
 			if state.black_player.piece_selected.coord.x < 0 do return
 			if state.black_player.piece_selected.coord.x == 1 {
 				state.map_possible_movements = {
@@ -178,21 +178,21 @@ check_possible_movements :: proc(state: ^Game_State) {
 					"DOWNLEFT"  = 1,
 				}
 			}
-		case "fou":
+		case .fou:
 			state.map_possible_movements = {
 				"UPRIGHT"   = min(max_right, max_up),
 				"UPLEFT"    = min(max_left, max_up),
 				"DOWNLEFT"  = min(max_left, max_down),
 				"DOWNRIGHT" = min(max_right, max_down),
 			}
-		case "tour":
+		case .tour:
 			state.map_possible_movements = {
 				"RIGHT" = max_right,
 				"LEFT"  = max_left,
 				"UP"    = max_up,
 				"DOWN"  = max_down,
 			}
-		case "reine":
+		case .reine:
 			state.map_possible_movements = {
 				"UPRIGHT"   = min(max_right, max_up),
 				"UPLEFT"    = min(max_left, max_up),
@@ -203,7 +203,7 @@ check_possible_movements :: proc(state: ^Game_State) {
 				"UP"        = max_up,
 				"DOWN"      = max_down,
 			}
-		case "roi":
+		case .roi:
 			state.map_possible_movements = {
 				"UPRIGHT"   = min(1, max_right, max_up),
 				"UPLEFT"    = min(1, max_left, max_up),
@@ -214,7 +214,7 @@ check_possible_movements :: proc(state: ^Game_State) {
 				"UP"        = min(1, max_up),
 				"DOWN"      = min(1, max_down),
 			}
-		case "chevalier":
+		case .chevalier:
 			if max_right >= 2 && max_up >= 1 {
 				append(
 					&state.list_possible_movements_coord,
@@ -295,11 +295,11 @@ check_possible_movements :: proc(state: ^Game_State) {
 
 check_collision_pieces :: proc(state: ^Game_State) {
 	current_player := state.white_player if state.is_white_turn else state.black_player
-	if len(state.map_possible_movements) == 0 && current_player.piece_selected.type != "chevalier" do return
+	if len(state.map_possible_movements) == 0 && current_player.piece_selected.type != .chevalier do return
 	state.list_grid[current_player.piece_selected.coord.x][current_player.piece_selected.coord.y].selected =
 		true
 
-	if current_player.piece_selected.type == "chevalier" {
+	if current_player.piece_selected.type == .chevalier {
 		#reverse for moves, i in state.list_possible_movements_coord {
 			collision := false
 			collision_friendly := false
@@ -337,7 +337,7 @@ check_collision_pieces :: proc(state: ^Game_State) {
 					}
 				}
 			}
-			if current_player.piece_selected.type == "peon" && current_player.is_white && collision do break exit_up
+			if current_player.piece_selected.type == .pion && current_player.is_white && collision do break exit_up
 			append(
 				&state.list_possible_movements_coord,
 				[2]int {
@@ -370,7 +370,7 @@ check_collision_pieces :: proc(state: ^Game_State) {
 					}
 				}
 			}
-			if current_player.piece_selected.type == "peon" && !current_player.is_white && collision do break exit_down
+			if current_player.piece_selected.type == .pion && !current_player.is_white && collision do break exit_down
 			append(
 				&state.list_possible_movements_coord,
 				[2]int {
@@ -403,7 +403,7 @@ check_collision_pieces :: proc(state: ^Game_State) {
 					}
 				}
 			}
-			if current_player.piece_selected.type == "peon" && current_player.is_white && !collision do break exit_upright
+			if current_player.piece_selected.type == .pion && current_player.is_white && !collision do break exit_upright
 			append(
 				&state.list_possible_movements_coord,
 				[2]int {
@@ -436,7 +436,7 @@ check_collision_pieces :: proc(state: ^Game_State) {
 					}
 				}
 			}
-			if current_player.piece_selected.type == "peon" && current_player.is_white && !collision do break exit_upleft
+			if current_player.piece_selected.type == .pion && current_player.is_white && !collision do break exit_upleft
 			append(
 				&state.list_possible_movements_coord,
 				[2]int {
@@ -469,7 +469,7 @@ check_collision_pieces :: proc(state: ^Game_State) {
 					}
 				}
 			}
-			if current_player.piece_selected.type == "peon" && !current_player.is_white && !collision do break exit_downright
+			if current_player.piece_selected.type == .pion && !current_player.is_white && !collision do break exit_downright
 			append(
 				&state.list_possible_movements_coord,
 				[2]int {
@@ -502,7 +502,7 @@ check_collision_pieces :: proc(state: ^Game_State) {
 					}
 				}
 			}
-			if current_player.piece_selected.type == "peon" && !current_player.is_white && !collision do break exit_downleft
+			if current_player.piece_selected.type == .pion && !current_player.is_white && !collision do break exit_downleft
 			append(
 				&state.list_possible_movements_coord,
 				[2]int {
