@@ -29,6 +29,14 @@ Game_State :: struct {
 	texture_cache:                 Texture_Cache,
 	white_player:                  ^Player,
 	black_player:                  ^Player,
+	white_player_rect:             sdl.FRect,
+	white_player_texture:          ^sdl.Texture,
+	black_player_texture:          ^sdl.Texture,
+	black_player_rect:             sdl.FRect,
+	white_turn_gui_rect:           sdl.FRect,
+	black_turn_gui_rect:           sdl.FRect,
+	white_turn_gui_texture:        ^sdl.Texture,
+	black_turn_gui_texture:        ^sdl.Texture,
 	mouse_coord:                   [2]f32,
 	mouse_moved:                   bool,
 	mouse_left_clicked:            bool,
@@ -38,6 +46,12 @@ Game_State :: struct {
 	black_win:                     bool,
 	tile_size:                     int,
 	font:                          ^ttf.Font,
+	background:                    ^background_rect,
+}
+
+background_rect :: struct {
+	left_part:  sdl.FRect,
+	right_part: sdl.FRect,
 }
 
 Grid_Tile :: struct {
@@ -108,6 +122,8 @@ main :: proc() {
 	init_pieces(&state)
 	init_players(&state)
 	init_textures(&state)
+	init_background(&state)
+	init_gui(&state)
 
 	defer cleanup_textures(&state)
 	defer cleanup_pieces(&state)
@@ -181,8 +197,10 @@ update :: proc(state: ^Game_State) {
 render :: proc(state: ^Game_State) {
 	sdl.SetRenderDrawColorFloat(state.renderer, 0.05, 0.05, 0.08, 1.0)
 	sdl.RenderClear(state.renderer)
+	draw_background(state)
 	draw_grid(state)
 	draw_pieces(state)
+	display_gui(state)
 	sdl.RenderPresent(state.renderer)
 }
 
@@ -220,8 +238,38 @@ draw_grid :: proc(state: ^Game_State) {
 				sdl.SetRenderDrawColor(state.renderer, 25, 240, 20, 70)
 				sdl.RenderFillRect(state.renderer, &state.list_grid[i][j].tile)
 			}
+			if state.list_grid[i][j].hovered {
+				sdl.SetRenderDrawColor(state.renderer, 40, 24, 40, 70)
+				sdl.RenderFillRect(state.renderer, &state.list_grid[i][j].tile)
+			}
 		}
 	}
+}
+
+draw_background :: proc(state: ^Game_State) {
+	sdl.SetRenderDrawColor(state.renderer, 220, 220, 220, 255)
+	sdl.RenderFillRect(state.renderer, &state.background.left_part)
+	sdl.SetRenderDrawColor(state.renderer, 20, 20, 20, 120)
+	sdl.RenderFillRect(state.renderer, &state.background.right_part)
+}
+
+init_background :: proc(state: ^Game_State) {
+	left_part := sdl.FRect {
+		x = 0,
+		y = 0,
+		w = SCREEN_WIDTH / 2,
+		h = SCREEN_HEIGHT,
+	}
+	right_part := sdl.FRect {
+		x = SCREEN_WIDTH / 2,
+		y = 0,
+		w = SCREEN_WIDTH / 2,
+		h = SCREEN_HEIGHT,
+	}
+	p := new(background_rect)
+	p.left_part = left_part
+	p.right_part = right_part
+	state.background = p
 }
 
 init_grid :: proc(state: ^Game_State) {
@@ -250,11 +298,9 @@ init_players :: proc(state: ^Game_State) {
 	p1 := new(Player)
 	p1.is_white = true
 	p1.name = "Romeo"
-
 	p2 := new(Player)
 	p2.is_white = false
 	p2.name = "Juliette"
-
 	state.white_player = p1
 	state.black_player = p2
 }
@@ -327,11 +373,23 @@ select_piece :: proc(state: ^Game_State) {
 	row, col, ok := get_board_tile_at_mouse(state)
 	if !ok do return
 
+	// I am looking for a better way to do this
+	// maybe merge it with another loop somewhere in the draw procedures ?
+	// This is sureley not the most efficient way to proceede
+	for i := 0; i < 8; i += 1 {
+		for j := 0; j < 8; j += 1 {
+			state.list_grid[i][j].hovered = false
+		}
+	}
+
+	state.list_grid[row][col].hovered = true
 	current_player := state.white_player if state.is_white_turn else state.black_player
 
 	for pcs in state.list_pieces {
 		pcs.hovered = false
-		if pcs.coord[0] != row || pcs.coord[1] != col do continue
+		if pcs.coord[0] != row || pcs.coord[1] != col {
+			continue
+		}
 		if pcs == current_player.piece_selected && state.mouse_left_clicked {
 			unselect_all(state)
 			return
@@ -419,7 +477,7 @@ load_piece_texture :: proc(renderer: ^sdl.Renderer, path: string) -> ^sdl.Textur
 
 init_textures :: proc(state: ^Game_State) {
 	if state.renderer == nil {
-		fmt.println("Ah that is not good, rendrere is nil")
+		fmt.println("Ah that is not good, renderer is nil")
 		return
 	}
 	white_filenames := [Piece_Type]string {
