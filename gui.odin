@@ -1,5 +1,6 @@
 package main
 
+import "core:crypto/_aes/ct64"
 import "core:fmt"
 import "core:strings"
 import sdl "vendor:sdl3"
@@ -19,12 +20,17 @@ init_gui :: proc(state: ^Game_State) -> bool {
 
 	init_display_player_name(state)
 	init_black_white_turn_gui(state)
+	init_kill_counts(state)
 	return true
 }
 
 cleanup_gui :: proc(state: ^Game_State) {
 	if state.white_player_texture != nil do sdl.DestroyTexture(state.white_player_texture)
 	if state.black_player_texture != nil do sdl.DestroyTexture(state.black_player_texture)
+	if state.white_turn_gui_texture != nil do sdl.DestroyTexture(state.white_turn_gui_texture)
+	if state.black_turn_gui_texture != nil do sdl.DestroyTexture(state.black_turn_gui_texture)
+	if state.white_kill_count_texture != nil do sdl.DestroyTexture(state.white_kill_count_texture)
+	if state.black_kill_count_texture != nil do sdl.DestroyTexture(state.black_kill_count_texture)
 	if state.font != nil do ttf.CloseFont(state.font)
 	ttf.Quit()
 }
@@ -32,6 +38,7 @@ cleanup_gui :: proc(state: ^Game_State) {
 display_gui :: proc(state: ^Game_State) {
 	display_players_name(state)
 	display_player_turn(state)
+	display_kill_count(state)
 }
 
 display_players_name :: proc(state: ^Game_State) {
@@ -69,6 +76,21 @@ display_player_turn :: proc(state: ^Game_State) {
 			&state.black_turn_gui_rect,
 		)
 	}
+}
+
+display_kill_count :: proc(state: ^Game_State) {
+	sdl.RenderTexture(
+		state.renderer,
+		state.white_kill_count_texture,
+		nil,
+		&state.white_kill_count_rect,
+	)
+	sdl.RenderTexture(
+		state.renderer,
+		state.black_kill_count_texture,
+		nil,
+		&state.black_kill_count_rect,
+	)
 }
 
 draw_text :: proc(state: ^Game_State, text: string, rect: sdl.FRect, color: sdl.Color) {
@@ -133,8 +155,8 @@ init_display_player_name :: proc(state: ^Game_State) {
 	state.black_player_rect.h = 40
 	color = sdl.Color{40, 40, 40, 200}
 
-	if len(state.white_player.name) <= 0 {
-		fmt.println("White name not found: ", sdl.GetError())
+	if len(state.black_player.name) <= 0 {
+		fmt.println("Black name not found: ", sdl.GetError())
 		return
 	}
 	c_string = strings.clone_to_cstring(state.black_player.name, context.temp_allocator)
@@ -143,4 +165,63 @@ init_display_player_name :: proc(state: ^Game_State) {
 	texture = sdl.CreateTextureFromSurface(state.renderer, surface)
 	if texture == nil do return
 	state.black_player_texture = texture
+}
+
+init_kill_counts :: proc(state: ^Game_State) {
+	white_pieces: int = 0
+	white_pieces_tete: int = 0
+	black_pieces: int = 0
+	black_pieces_tete: int = 0
+
+	for pcs in &state.list_pieces {
+		if pcs.is_dead do continue
+		if pcs.is_white {
+			white_pieces += 1
+			if pcs.type != .pion {
+				white_pieces_tete += 1
+			}
+			continue
+		}
+		black_pieces += 1
+		if pcs.type != .pion {
+			black_pieces_tete += 1
+		}
+	}
+	white_pieces = 16 - white_pieces
+	white_pieces_tete = 8 - white_pieces_tete
+	string_white_piece := fmt.ctprintf(
+		"Kill count: %d\nHeads kill: %d",
+		white_pieces,
+		white_pieces_tete,
+	)
+	state.white_kill_count_rect.x = 10
+	state.white_kill_count_rect.y = (SCREEN_HEIGHT - BOARD_SIZE) + 10
+	state.white_kill_count_rect.w = 200
+	state.white_kill_count_rect.h = 40
+	color := sdl.Color{250, 10, 10, 200}
+	surface := ttf.RenderText_Blended_Wrapped(state.font, string_white_piece, 0, color, 0)
+	if surface == nil do return
+	defer sdl.DestroySurface(surface)
+	texture := sdl.CreateTextureFromSurface(state.renderer, surface)
+	if texture == nil do return
+	state.white_kill_count_texture = texture
+
+	black_pieces = 16 - black_pieces
+	black_pieces_tete = 8 - black_pieces_tete
+	string_black_piece := fmt.ctprintf(
+		"Kill count: %d\nHeads kill: %d",
+		black_pieces,
+		black_pieces_tete,
+	)
+
+	state.black_kill_count_rect.x = (SCREEN_WIDTH - BOARD_SIZE) / 2 + 10 + BOARD_SIZE
+	state.black_kill_count_rect.y = (SCREEN_HEIGHT - BOARD_SIZE) + 10
+	state.black_kill_count_rect.w = 200
+	state.black_kill_count_rect.h = 40
+	color = sdl.Color{250, 10, 10, 200}
+	surface = ttf.RenderText_Blended_Wrapped(state.font, string_black_piece, 0, color, 0)
+	if surface == nil do return
+	texture = sdl.CreateTextureFromSurface(state.renderer, surface)
+	if texture == nil do return
+	state.black_kill_count_texture = texture
 }

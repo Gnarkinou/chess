@@ -37,6 +37,10 @@ Game_State :: struct {
 	black_turn_gui_rect:           sdl.FRect,
 	white_turn_gui_texture:        ^sdl.Texture,
 	black_turn_gui_texture:        ^sdl.Texture,
+	white_kill_count_rect:         sdl.FRect,
+	white_kill_count_texture:      ^sdl.Texture,
+	black_kill_count_rect:         sdl.FRect,
+	black_kill_count_texture:      ^sdl.Texture,
 	mouse_coord:                   [2]f32,
 	mouse_moved:                   bool,
 	mouse_left_clicked:            bool,
@@ -219,6 +223,10 @@ draw_pieces :: proc(state: ^Game_State) {
 		if tex != nil {
 			sdl.RenderTexture(state.renderer, tex, nil, &pcs.rect)
 		}
+		if pcs.hovered {
+			// to be implemented
+			// colour change when piece is hovered
+		}
 	}
 }
 
@@ -297,10 +305,10 @@ init_grid :: proc(state: ^Game_State) {
 init_players :: proc(state: ^Game_State) {
 	p1 := new(Player)
 	p1.is_white = true
-	p1.name = "Romeo"
+	p1.name = "Les enfants"
 	p2 := new(Player)
 	p2.is_white = false
-	p2.name = "Juliette"
+	p2.name = "Papa"
 	state.white_player = p1
 	state.black_player = p2
 }
@@ -344,6 +352,7 @@ cleanup_dead_pieces :: proc(state: ^Game_State) {
 			ordered_remove(&state.list_pieces, i)
 		}
 	}
+	init_kill_counts(state)
 }
 
 cleanup_pieces :: proc(state: ^Game_State) {
@@ -357,6 +366,7 @@ cleanup_pieces :: proc(state: ^Game_State) {
 get_board_tile_at_mouse :: proc(state: ^Game_State) -> (row: int, col: int, valid: bool) {
 	margin_x := (SCREEN_WIDTH - BOARD_SIZE) / 2
 	margin_y := (SCREEN_HEIGHT - BOARD_SIZE) / 2
+	if margin_x > int(state.mouse_coord[0]) || margin_y > int(state.mouse_coord[1]) do return -1, -1, false
 	board_mouse_x := int(state.mouse_coord[0]) - margin_x
 	board_mouse_y := int(state.mouse_coord[1]) - margin_y
 	col = board_mouse_x / state.tile_size
